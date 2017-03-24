@@ -24,10 +24,10 @@ var spa = (function ($) {// Помещаем весь наш код в прос�
         // Объявить все прочие переменные в области видимости модуля
         $chatSlider, toggleSlider, onClickSlider, initModule;
 
-    // Метод DOM toggleSlider изменяет высоту окна чата. Помещаем все методы манипуляции DOM в одну секцию.
-    toggleSlider = function () {
+        // Метод DOM toggleSlider изменяет высоту окна чата. Помещаем все методы манипуляции DOM в одну секцию.
+        toggleSlider = function () {
         var slider_height = $chatSlider.height();
-        if (slider_height === configMap.retracted_height) {// Раскрыть окно чата, если оно свернуто
+            if (slider_height === configMap.retracted_height) {// Раскрыть окно чата, если оно свернуто
             $chatSlider
                 .animate({ height: configMap.extended_height })
                 .attr('title', configMap.extended_title);
@@ -41,7 +41,7 @@ var spa = (function ($) {// Помещаем весь наш код в прос�
         }
         // ничего не делать, если окно чата в процессе перехода
         return false;
-    }
+        }
 
     // Обработчик события "onClickSlider", получает событие щелчка и вызывает "toggleSlider"
     onClickSlider = function (event) {
