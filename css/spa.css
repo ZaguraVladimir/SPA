@@ -4,28 +4,29 @@ spa.css
 */
 
 /*Начало установки начальных значений*/
-*{
-    margin: 0;
-    padding: 0;
+* {
+    margin:             0;
+    padding:            0;
     -webkit-box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
+    -moz-box-sizing:    border-box;
+    box-sizing:         border-box;
 }
 
-h1, h2, h3, h4, h5, h6, p{margin-bottom: 10px;}
+h1, h2, h3, h4, h5, h6, p {margin-bottom: 10px;}
 ol,ul,dl{list-style-position: inside;}
 /*Конец установки начальных значений*/
 
 /*Начало стандартных селекторов*/
-body{
+body {
     font:             13px 'Trebuchet MS', Verdana, Helvetica, Arial, sans-serif;
     color:            #404040;
     background-color: #808080;
 }
-a{text-decoration: none;}
-a:link, a:visited{color: inherit;}
-a:hover{text-decoration: underline;}
-strong{font-weight: 800; color: #000000;}
+
+a {text-decoration: none;}
+a:link, a:visited {color: inherit;}
+a:hover {text-decoration: underline;}
+strong {font-weight: 800; color: #000000;}
 /*Конец стандартных селекторов*/
 
 /*Начало селекторов в пространстве имен spa*/
@@ -54,6 +55,3 @@ strong{font-weight: 800; color: #000000;}
     clear:      both !important;
 }
 /*Конец служебных селекторов*/
-
-
-
