@@ -26,24 +26,83 @@ spa.shell = (function () {
             chatExtendHeight: 450,// Высота развернутого окна чата
             chatRetractHeight: 15,// Высота свернутого окна чата
             chatExtendedTitle: 'Щелкните чтобы свернуть',
-            chatRetractedTitle: 'Щелкните чтобы развернуть'
+            chatRetractedTitle: 'Щелкните чтобы развернуть',
+            anchorSchemaMap: { chat: { open: true, closed: true } },
         },
-        stateMap = { $container: null, isChatRetracted: true },// Помещаем динамическую информацию о состоянии, доступную внутри модуля, в объект stateMap.
+        stateMap = {// Помещаем динамическую информацию о состоянии, доступную внутри модуля, в объект stateMap.
+            $container: null,
+            isChatRetracted: true,
+            anchorMap: {},
+        },
         jqueryMap = {}, setJqeryMap,// Кэшируем коллекции jQuery в объекте jqueryMap в функции "setJqeryMap".
         toggjeChat, onClickChat,
+        copyAnchorMap, changeAnchorPart, onHashChange,
         initModule;
     // -----------------------------КОНЕЦ ПЕРЕМЕННЫХ В ОБЛАСТИ ВИДИМОСТИ МОДУЛЯ-----------------------------
 
     // -----------------------------НАЧАЛО СЛУЖЕБНЫХ МЕТОДОВ-----------------------------
-    // В секцию «Служебные методы» помещаются функции, которые не взаимодействуют с элементами страницы.
+    copyAnchorMap = function(){
+        return $.extend(true, {}, stateMap.anchorMap);
+    };
     // -----------------------------КОНЕЦ СЛУЖЕБНЫХ МЕТОДОВ-----------------------------
 
     // -----------------------------НАЧАЛО МЕТОДОВ DOM-----------------------------
     // В секцию «Методы DOM» помещаются функции, которые создают элементы на странице и манипулируют ими.
 
-    /*Функция "setJqueryMap" служит для кэширования коллекций jQuery.
-    Она должна присутствовать практически во всех написанных нами оболочках и функциональных модулях.
-    Кэш jqueryMap позволяет существенно уменьшить количество проходов jQuery по документу и повысить производительность.*/
+
+    /* Функция changeAnchorPart() изменяет якорь в URI-адресе.
+        Этот метод:
+            * Создает копию хэша, вызывая copyAnchorMap().
+            * Модифицирует пары ключ–значение с помощью arg_map.
+            * Управляет различием между зависимыми и независимыми значениями в кодировке.
+            * Пытается изменить URI, используя uriAnchor.
+        Аргументы: arg_map – хэш, описывающий, какую часть якоря мы хотим изменить.
+        Возвращает : true  – якорь в URI обновлен, false – не удалось обновить якорь в URI
+        Действие: Текущая часть якоря сохранена в stateMap.anchor_map. Обсуждение кодировки см. в документации по uriAnchor.*/
+    changeAnchorPart = function (argMap) {
+        var
+            anchorMapRevise = copyAnchorMap(),
+            boolReturn = true,
+            keyName, keyNameDep;
+
+        // Начало объединения изменений в хэше якорей
+        KEYVAL:
+        for (keyName in argMap) {
+            if (argMap.hasOwnProperty(keyName)) {
+                if (keyName.indexOf('_') === 0) { continue KEYVAL; }// Пропустить зависимые ключи
+                anchorMapRevise[keyName] = argMap[keyName];// Обновить значение независимого ключа
+
+                // Обновить соответствующий зависимый ключ
+                keyNameDep = '_' + keyName;
+                if (argMap[keyNameDep]) {
+                    anchorMapRevise[keyNameDep] = argMap[keyNameDep];
+                } else {
+                    delete anchorMapRevise[keyNameDep];
+                    delete anchorMapRevise['_s' + keyNameDep];
+                }
+            }
+        }
+        // Конец объединения изменений в хэше якорей
+
+        // Начало попытки обновления URI; в случае ошибки.
+        // Не устанавливаем якорь, если он несоответствует схеме (uriAnchor возбудит исключение). В таком случае возвращаем якорь в исходное состояние
+
+        // восстановить исходное состояние
+        try {
+            $.uriAnchor.setAnchor(anchorMapRevise);
+        } catch (e) {
+            // восстановить исходное состояние в URI
+            $.uriAnchor.setAnchor(stateMap.anchorMap, null, true);
+            boolReturn = false;
+        }
+        // Конец попытки обновления URI
+
+        return boolReturn;
+    };
+
+    /* Функция "setJqueryMap" служит для кэширования коллекций jQuery.
+        Она должна присутствовать практически во всех написанных нами оболочках и функциональных модулях.
+        Кэш jqueryMap позволяет существенно уменьшить количество проходов jQuery по документу и повысить производительность.*/
     setJqeryMap = function () {
         var $container = stateMap.$container;
         jqueryMap = {
@@ -52,13 +111,9 @@ spa.shell = (function () {
         };
     };
 
-    // Назначение : свернуть или развернуть окно чата
-    // Аргументы  :
-    //   * doExtend – true-развернуть окно; false – свернуть окно
-    //   * callback – необязательная функция, которая вызывается в конце анимации
-    // Возвращает :
-    //   * true  – окно свернуто
-    //   * false – окно раскрыто
+    /* Функция "toggjeChat" сворачивает или развертывает окно чата
+        Аргументы  :doExtend – true-развернуть окно; false – свернуть окно. callback – необязательная функция, которая вызывается в конце анимации
+        Возвращает : true  – окно свернуто или раскрыто, false – окно находится в процессе анимации */
     toggjeChat = function (doExtend, callback) {
         var
             pxChatHeight = jqueryMap.$chat.height(),
@@ -69,37 +124,73 @@ spa.shell = (function () {
         // Предотвращаем гонку, отказываясь начинать операцию, если окно чата уже находится в процессе анимации
         if (isSliding) { return false; }
 
-        if (doExtend) {// Развернуть окно чата
-            jqueryMap.$chat.animate(
-                { height: configMap.chatExtendHeight },
-                configMap.chatExtendTime,
-                function () {
-                    jqueryMap.$chat.attr('title', configMap.chatExtendedTitle);
-                    stateMap.isChatRetracted = false;
-                    if (callback) { callback(jqueryMap.$chat); }
-                }
-            );
-            return true;
-        } else {// Cвернуть окно чата
-            jqueryMap.$chat.animate(
-                { height: configMap.chatRetractHeight },
-                configMap.chatRetractTime,
-                function () {
-                    jqueryMap.$chat.attr('title', configMap.chatRetractedTitle);
-                    stateMap.isChatRetracted = true;
-                    if (callback) { callback(jqueryMap.$chat); }
-                }
-            );
-            return true;
-        }
+        var
+            height = doExtend ? configMap.chatExtendHeight : configMap.chatRetractHeight,
+            time = doExtend ? configMap.chatExtendTime : configMap.chatRetractTime,
+            title = doExtend ? configMap.chatExtendedTitle : configMap.chatRetractedTitle;
+
+        jqueryMap.$chat.animate(
+            { height: height },
+            time,
+            function () {
+                jqueryMap.$chat.attr('title', title);
+                stateMap.isChatRetracted = !doExtend;
+                if (callback) { callback(jqueryMap.$chat); }
+            }
+        );
+        return true;
     };
     // -----------------------------КОНЕЦ МЕТОДОВ DOM-----------------------------
 
     // -----------------------------НАЧАЛО ОБРАБОТЧИКОВ СОБЫТИЙ-----------------------------
-    onClickChat = function (event) {
-        toggjeChat(stateMap.isChatRetracted);
+
+    /* Обработчик события "onHashchange"
+         Аргументы: event – объект события jQuery.
+         Параметры: нет
+         Возвращает: false
+         Действие:
+            * Разбирает якорь в URI.
+            * Сравнивает предложенное состояние приложения с текущим.
+            * Вносит изменения, только если предложенное состояние отличается от текущего.*/
+    onHashChange = function (event) {
+        var
+            anchorMapPrevious = copyAnchorMap(),
+            anchorMapProposed,
+            _sChatPrevious, _sChatProposed, sChatProposed;
+
+        try { anchorMapProposed = $.uriAnchor.makeAnchorMap(); }
+        catch (e) { $.uriAnchor.setAnchor(anchorMapPrevious, null, true); return false; }
+        stateMap.anchorMap = anchorMapProposed;
+
+        // вспомогательные переменные
+        _sChatPrevious = anchorMapPrevious._s_chat;
+        _sChatProposed = anchorMapProposed._s_chat;
+
+        // Начало изменения компонента Chat
+        if (!anchorMapPrevious || _sChatPrevious !== _sChatProposed) {
+            sChatProposed = anchorMapProposed.chat;
+            switch (sChatProposed) {
+                case 'open':
+                    toggjeChat(true);
+                    break;
+                case 'closed':
+                    toggjeChat(false);
+                    break;
+                default:
+                    toggjeChat(false);
+                    delete anchorMapProposed.chat;
+                    $.uriAnchor.setAnchor(anchorMapProposed, null, true);
+            }
+        }
+        // Конец изменения компонента Chat
         return false;
-    }
+    };
+   
+    /* Обработчик события "onHashchange" */
+    onClickChat = function (event) {
+        changeAnchorPart({ chat: (stateMap.isChatRetracted ? 'open' : 'closed') });
+        return false;
+    };
     // -----------------------------КОНЕЦ ОБРАБОТЧИКОВ СОБЫТИЙ-----------------------------
 
     // -----------------------------НАЧАЛО ОТКРЫТЫХ МЕТОДОВ-----------------------------
@@ -115,6 +206,11 @@ spa.shell = (function () {
         jqueryMap.$chat
             .attr('title', configMap.chatRetractedTitle)
             .click(onClickChat);
+
+        $.uriAnchor.configModule({ schema_map: configMap.anchorSchemaMap });
+        $(window)
+        .bind('hashchange', onHashChange)
+        .trigger('hashchange');
     };
 
     // Явно экспортируем открытые методы, возвращая их в хэше. В настоящее время есть только один открытый метод – initModule 
